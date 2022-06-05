@@ -1,6 +1,10 @@
+#include <Arduino.h>
+#define CAMERA_MODEL_AI_THINKER
 #include <EloquentVision.h>
 #include "SPIFFS.h"
 #include "app_common.h"
+#include "esp_camera.h"
+#include "app_camera.h"
 Eloquent::Vision::ESP32Camera camera;
 camera_fb_t *frame;
 camera_fb_t *frame2;
@@ -20,7 +24,6 @@ void initCamera()
 uint8_t *captureFrame()
 {
   digitalWrite(PWDN_GPIO_NUM, HIGH);
-    digitalWrite(RESET_GPIO_NUM, HIGH);
   delay(50);
   camera_config_t config;
 
@@ -56,18 +59,17 @@ uint8_t *captureFrame()
 
   Serial.println("CAMERA CAPTURE STARTED");
   frame = esp_camera_fb_get();
+ // esp_camera_fb_return(frame);
   Serial.println("CAMERA CAPTURE ENDED");
   esp_camera_deinit();
   delay(50);
   digitalWrite(PWDN_GPIO_NUM, LOW);
-    digitalWrite(RESET_GPIO_NUM, LOW);
   return frame->buf;
 }
 
 void getFrameJpeg()
 {
   digitalWrite(PWDN_GPIO_NUM, HIGH);
-  digitalWrite(RESET_GPIO_NUM, HIGH);
   delay(50);
   camera_config_t config;
 
@@ -119,8 +121,9 @@ void getFrameJpeg()
   }
 
   file.close();
+ // esp_camera_fb_return(frame2);
   esp_camera_deinit();
   delay(50);
   digitalWrite(PWDN_GPIO_NUM, LOW);
-    digitalWrite(RESET_GPIO_NUM, LOW);
+  
 }
