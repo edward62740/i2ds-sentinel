@@ -4,7 +4,11 @@
 
 // Photo File Name to save in SPIFFS
 #define FILE_PHOTO "/data/photo.jpeg"
+<<<<<<< HEAD
 #define STORAGE_BUCKET_ID "█████████.appspot.com"
+=======
+#define STORAGE_BUCKET_ID ""
+>>>>>>> 6ad028a2c49c97937b8459cd1397009f2f004645
 
 /* GLOBAL CONFIG */
 #define FIREBASE_PROJECT_ID "█████████"
@@ -24,11 +28,19 @@
 
 #define APP_LOG_START()           do { if (DEBUG_LOGS)  Serial.begin(115200); } while (0)
 #define APP_LOG_INFO(...) \
+<<<<<<< HEAD
             do { if (DEBUG_LOGS)  Serial.print("[" + (String)millis() + "] I: "); Serial.println(__VA_ARGS__); } while (0)
 #define APP_LOG_WARN(...) \
             do { if (DEBUG_LOGS)  Serial.print("[" + (String)millis() + "] W: "); Serial.println(__VA_ARGS__); } while (0)
 #define APP_LOG_ERR(...) \
             do { if (DEBUG_LOGS)  Serial.print("[" + (String)millis() + "] E: "); Serial.println(__VA_ARGS__); } while (0)
+=======
+            do { if (DEBUG_LOGS)  Serial.print("(" + (String)millis() + ") I: "); Serial.println(__VA_ARGS__); } while (0)
+#define APP_LOG_WARN(...) \
+            do { if (DEBUG_LOGS)  Serial.print("(" + (String)millis() + ") W: "); Serial.println(__VA_ARGS__); } while (0)
+#define APP_LOG_ERR(...) \
+            do { if (DEBUG_LOGS)  Serial.print("(" + (String)millis() + ") E: "); Serial.println(__VA_ARGS__); } while (0)
+>>>>>>> 6ad028a2c49c97937b8459cd1397009f2f004645
 
 #define IPC_RESPONSE_TIMEOUT_MS 2000 // Sensor poll interval
 #define MANAGER_MAX_DEVICE_NOMSG_MS 15000 // Timeout for device 'alive' status
