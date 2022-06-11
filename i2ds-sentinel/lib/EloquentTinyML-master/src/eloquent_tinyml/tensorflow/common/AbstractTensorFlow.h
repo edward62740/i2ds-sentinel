@@ -62,7 +62,11 @@ namespace Eloquent {
 
                     interpreter = new tflite::MicroInterpreter(model, opResolver, tensorArena, tensorArenaSize,
                                                                &errorReporter);
+<<<<<<< HEAD
 
+=======
+                                                               
+>>>>>>> 6ad028a2c49c97937b8459cd1397009f2f004645
                     if (interpreter->AllocateTensors() != kTfLiteOk)
                         return this->abort(CANNOT_ALLOCATE_TENSORS, false);
 
