@@ -1,0 +1,4 @@
+#ifndef APP_TRIPWIRE_H
+#define APP_TRIPWIRE_H
+
+#endif // APP_TRIPWIRE_H

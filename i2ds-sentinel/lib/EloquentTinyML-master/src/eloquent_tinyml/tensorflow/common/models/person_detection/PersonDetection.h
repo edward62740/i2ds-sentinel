@@ -4,7 +4,7 @@
 #include "./person_detection_model.h"
 
 #ifndef PERSON_DETECTION_ARENA_SIZE
-#define PERSON_DETECTION_ARENA_SIZE 75000
+#define PERSON_DETECTION_ARENA_SIZE 74000
 #endif
 
 
