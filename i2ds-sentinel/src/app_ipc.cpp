@@ -1,4 +1,4 @@
-#include <Arduino.h> 
+#include <Arduino.h>
 #include "app_ipc.h"
 #include "app_common.h"
 
@@ -7,8 +7,7 @@ uint8_t IPC_START = 0xAF;
 uint8_t IPC_END = 0xAC;
 
 // IPC rx buffer
-char ipc_recv_buffer[255];
-
+char ipc_recv_buffer[55];
 
 /*! ipcTask()
    @brief task to handle ipc communication with efr32fg23
@@ -28,7 +27,14 @@ void ipcTask(void *pvParameters)
             ret = Serial1.readBytesUntil(IPC_END, (char *)ipc_recv_buffer, sizeof(ipc_recv_buffer)); // read until end byte
             ipcParser(ipc_recv_buffer, ret);
         }
-        vTaskDelay(10);
+        vPortYield();
+        vTaskDelay(125);
+        /*log_d("Total heap: %d", ESP.getHeapSize());
+        log_d("Free heap: %d", ESP.getFreeHeap());
+        log_d("Total PSRAM: %d", ESP.getPsramSize());
+        log_d("Free PSRAM: %d", ESP.getFreePsram());
+        log_d("Free heap min: %d", ESP.getMinFreeHeap());*/
+        vTaskDelay(125);
     }
 }
 
@@ -70,7 +76,7 @@ bool ipcParser(char *buffer, size_t len)
         uint8_t state = tmpBuf[4];
         uint8_t count = tmpBuf[6];
         uint8_t tmpIndex = 0;
-       
+
         break;
     }
     }

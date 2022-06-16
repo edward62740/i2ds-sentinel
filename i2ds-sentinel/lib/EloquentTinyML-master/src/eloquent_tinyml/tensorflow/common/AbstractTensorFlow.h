@@ -59,14 +59,10 @@ namespace Eloquent {
 
                     if (model->version() != TFLITE_SCHEMA_VERSION)
                         return this->abort(VERSION_MISMATCH, false);
-
-                    interpreter = new tflite::MicroInterpreter(model, opResolver, tensorArena, tensorArenaSize,
+                    EXT_RAM_ATTR interpreter = new tflite::MicroInterpreter(model, opResolver, tensorArena, tensorArenaSize,
                                                                &errorReporter);
-<<<<<<< HEAD
-
-=======
                                                                
->>>>>>> 6ad028a2c49c97937b8459cd1397009f2f004645
+                                                               
                     if (interpreter->AllocateTensors() != kTfLiteOk)
                         return this->abort(CANNOT_ALLOCATE_TENSORS, false);
 
@@ -142,7 +138,6 @@ namespace Eloquent {
                         return this->abort(error, 255);
 
                     memcpy(this->input->data.uint8, input, sizeof(uint8_t) * numInputs);
-
                     if (interpreter->Invoke() != kTfLiteOk)
                         return this->abort(INVOKE_ERROR, 255);
 
