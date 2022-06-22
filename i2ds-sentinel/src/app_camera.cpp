@@ -1,11 +1,26 @@
 #include <Arduino.h>
 #define CAMERA_MODEL_AI_THINKER
-#include <EloquentVision.h>
-#include "SPIFFS.h"
 #include "app_common.h"
 #include "esp_camera.h"
 #include "app_camera.h"
-camera_fb_t *frame;
+#define PWDN_GPIO_NUM     32
+#define RESET_GPIO_NUM    -1
+#define XCLK_GPIO_NUM      0
+#define SIOD_GPIO_NUM     26
+#define SIOC_GPIO_NUM     27
+
+#define Y9_GPIO_NUM       35
+#define Y8_GPIO_NUM       34
+#define Y7_GPIO_NUM       39
+#define Y6_GPIO_NUM       36
+#define Y5_GPIO_NUM       21
+#define Y4_GPIO_NUM       19
+#define Y3_GPIO_NUM       18
+#define Y2_GPIO_NUM        5
+#define VSYNC_GPIO_NUM    25
+#define HREF_GPIO_NUM     23
+#define PCLK_GPIO_NUM     22
+
 /*! AppCamera Constructor
     @brief Constructor
     @param void
@@ -41,23 +56,11 @@ bool AppCamera::init(pixformat_t pixformat)
   config.pin_sscb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 10000000;
-  if (pixformat == PIXFORMAT_JPEG)
-  {
-    config.pixel_format = PIXFORMAT_JPEG;
-    config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 10;
-    config.fb_count = 1;
-  }
-  else if (pixformat == PIXFORMAT_GRAYSCALE)
-  {
-    config.pixel_format = PIXFORMAT_GRAYSCALE;
-    config.frame_size = FRAMESIZE_QQVGA;
-    config.jpeg_quality = 4;
-    config.fb_count = 1;
-  }
-  else
-    return false;
+  config.xclk_freq_hz = 16000000;
+  config.pixel_format = PIXFORMAT_GRAYSCALE;
+  config.frame_size = FRAMESIZE_96X96;
+  config.jpeg_quality = 4;
+  config.fb_count = 1;
   esp_camera_init(&config);
   return true;
 }
@@ -68,44 +71,11 @@ bool AppCamera::init(pixformat_t pixformat)
    @param void
    @return pointer to frame buffer
 */
-uint8_t *AppCamera::captureGreyscale(bool reinitAsJpeg)
+uint8_t *AppCamera::captureGreyscale()
 {
-  returnBuffer();
+  camera_fb_t *frame;
   frame = esp_camera_fb_get();
-  if (reinitAsJpeg)
-  {
-    camera_config_t config;
-
-    config.ledc_channel = LEDC_CHANNEL_0;
-    config.ledc_timer = LEDC_TIMER_0;
-    config.pin_d0 = Y2_GPIO_NUM;
-    config.pin_d1 = Y3_GPIO_NUM;
-    config.pin_d2 = Y4_GPIO_NUM;
-    config.pin_d3 = Y5_GPIO_NUM;
-    config.pin_d4 = Y6_GPIO_NUM;
-    config.pin_d5 = Y7_GPIO_NUM;
-    config.pin_d6 = Y8_GPIO_NUM;
-    config.pin_d7 = Y9_GPIO_NUM;
-    config.pin_xclk = XCLK_GPIO_NUM;
-    config.pin_pclk = PCLK_GPIO_NUM;
-    config.pin_vsync = VSYNC_GPIO_NUM;
-    config.pin_href = HREF_GPIO_NUM;
-    config.pin_sscb_sda = SIOD_GPIO_NUM;
-    config.pin_sscb_scl = SIOC_GPIO_NUM;
-    config.pin_pwdn = PWDN_GPIO_NUM;
-    config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = 10000000;
-    config.pixel_format = PIXFORMAT_JPEG;
-    config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 10;
-    config.fb_count = 1;
-    esp_camera_deinit();
-    digitalWrite(PWDN_GPIO_NUM, LOW);
-    delay(50);
-    digitalWrite(PWDN_GPIO_NUM, HIGH);
-    delay(100);
-    esp_camera_init(&config);
-  }
+  esp_camera_fb_return(frame);
   return frame->buf;
 }
 
@@ -117,70 +87,14 @@ uint8_t *AppCamera::captureGreyscale(bool reinitAsJpeg)
 */
 void AppCamera::captureJpeg(bool reinitAsGreyscale = true)
 {
-  returnBuffer();
-  camera_config_t config;
+  
+ 
+  camera_fb_t *frame;
 
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 10000000;
-  config.pixel_format = PIXFORMAT_GRAYSCALE;
-  config.frame_size = FRAMESIZE_QQVGA;
-  config.jpeg_quality = 4;
-  config.fb_count = 1;
   frame = esp_camera_fb_get();
-  File file = SPIFFS.open(FILE_PHOTO, FILE_WRITE);
-  if (!file)
-  {
-    Serial.println("Failed to open file in writing mode");
-  }
-  else
-  {
-    file.write(frame->buf, frame->len); // payload (image), payload length
-    Serial.print("The picture has been saved in ");
-    Serial.print(FILE_PHOTO);
-    Serial.print(" - Size: ");
-    Serial.print(frame->len);
-    Serial.println(" bytes");
-  }
 
-  file.close();
-  if (reinitAsGreyscale)
-  {
-    esp_camera_deinit();
-    digitalWrite(PWDN_GPIO_NUM, LOW);
-    delay(50);
-    digitalWrite(PWDN_GPIO_NUM, HIGH);
-    delay(100);
-    esp_camera_init(&config);
-  }
 }
-/*! returnBuffer()
-   @brief call to return the frame buffer to the camera when done reading it
-   @note
-   @param void
-   @return void
-*/
-void AppCamera::returnBuffer()
-{
-  esp_camera_fb_return(frame);
-  vTaskDelay(1);
-}
+
 /*! ~AppCamera()
    @brief destructor
    @note

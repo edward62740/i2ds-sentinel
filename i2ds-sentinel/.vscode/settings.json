@@ -1,3 +1,9 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "files.associations": {
+        "_kiss_fft_guts.h": "c",
+        "softmax_common.h": "c",
+        "common_functions.h": "c"
+    },
+    "cmake.configureOnOpen": false
 }

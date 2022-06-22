@@ -9,10 +9,10 @@ public:
     AppCamera();
     ~AppCamera();
     bool init(pixformat_t pixformat);
-    uint8_t *captureGreyscale(bool reinitAsJpeg);
+    uint8_t *captureGreyscale();
     void captureJpeg(bool reinitAsGreyscale);
 
 private:
-    void returnBuffer();
+  
 };
 #endif // APP_CAMERA_H
