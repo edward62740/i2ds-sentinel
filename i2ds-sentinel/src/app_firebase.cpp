@@ -37,12 +37,10 @@ void firebaseTask(void *pvParameters)
     Firebase.signUp(&config, &auth, "", "");
     Firebase.begin(&config, &auth);
 
-    pinMode(4, OUTPUT);
-    digitalWrite(4, HIGH);
-
-    digitalWrite(4, LOW);
+    ledcSetup(14, 5000, 8);
+    ledcAttachPin(4, 14);
     appCam.init(PIXFORMAT_GRAYSCALE);
-    delay(500);
+    delay(1000);
     while (1)
     {
         if (xSemaphoreTake(det_ctx.send, 1) == pdTRUE)
@@ -51,9 +49,13 @@ void firebaseTask(void *pvParameters)
             APP_LOG_INFO("[DETECTOR] Person detected score: " + (String)det_ctx.result.posConfidence);
             APP_LOG_INFO("[DETECTOR] No person detected score: " + (String)det_ctx.result.negConfidence);
             APP_LOG_INFO("SEMAPHORE TAKEN");
+            if (det_ctx.result.posConfidence > det_ctx.result.negConfidence)
+                ledcWrite(14, 2);
+            else
+                ledcWrite(14, 0);
             if (uxQueueSpacesAvailable(det_ctx.frame) == 0)
                 xQueueReset(det_ctx.frame);
-            uint8_t *frameBuf = appCam.captureGreyscale(false);
+            uint8_t *frameBuf = appCam.captureGreyscale();
             APP_LOG_INFO("CAPTURED");
             if (xQueueSend(det_ctx.frame, (void *)&frameBuf, 0) != 0)
             {

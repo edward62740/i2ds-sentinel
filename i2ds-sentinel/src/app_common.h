@@ -2,13 +2,19 @@
 #define APP_COMMON_H
 #include <Arduino.h>
 
-
+const int IPC_TX = 2;
+const int IPC_RX = 12;
+const int I2C_SDA = 15;
+const int I2C_SCL = 14;
+const int INT_ACC = 4;
+const int ALARM = 13;
+const int LED_ADDR = 16;
 // Photo File Name to save in SPIFFS
 #define FILE_PHOTO "/data/photo.jpeg"
 #define STORAGE_BUCKET_ID ""
 
 /* GLOBAL CONFIG */
-#define FIREBASE_PROJECT_ID "█████████"
+#define FIREBASE_PROJECT_ID ""
 #define DATABASE_URL "" 
 #define API_KEY ""
 #define FW_VERSION "v1.0"
@@ -48,6 +54,6 @@
 #define MAX_PENDING_DEVICEINFO_QUEUE 10
 #define MAX_FIREBASE_REQUEST_QUEUE 10
 
-const uint16_t imageWidth = 160;
-const uint16_t imageHeight = 120;
+const uint16_t imageWidth = 96;
+const uint16_t imageHeight = 96;
 #endif  // APP_COMMON_H

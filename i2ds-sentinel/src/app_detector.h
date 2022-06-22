@@ -11,10 +11,10 @@ typedef struct
 
 typedef struct
 {
-    TaskHandle_t detector;
-    QueueHandle_t frame;
-    SemaphoreHandle_t send;
-    detector_result_t result;
+    TaskHandle_t detector; // task handle to be given to detector
+    QueueHandle_t frame; // queue to send frame pointer to detector
+    SemaphoreHandle_t send; // semaphore which acts as clear-to-send indicator
+    detector_result_t result; // structure to store result of detector
 } detector_ctx_t;
 
 
