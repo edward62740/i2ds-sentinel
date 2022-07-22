@@ -3,7 +3,7 @@
 ## Overview
 This is part of [I<sup>2</sup>DS](https://github.com/edward62740/i2ds). Utilizes tflite-micro person detector model to detect the presence of people, as well as capture photos when requested by other sensors within the network.
 
-<img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/i2ds-sentinel.jpg" alt="sentinel" width="200"/>
+<img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/i2ds-sentinel.jpg" alt="sentinel" width="200"/> <img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/pcb.jpg" alt="sentinel" width="200"/>
 
 ## Operation
 This device performs a few main functions:
