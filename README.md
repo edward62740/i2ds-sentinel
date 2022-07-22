@@ -27,6 +27,9 @@ In addition, the tflite person detection model was found to run too slowly for a
 
 The build flags in platformio.ini must be used or the code will not compile with the kernel optimizations.
 
+## Integration with I2DS
+This device will work with I2DS from commit [#9158914](https://github.com/edward62740/I2DS/commit/91589148e6d0b51ad65f4bae4d2b9b4c82a5fe6a).
+
 
 
 
