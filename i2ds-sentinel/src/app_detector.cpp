@@ -8,26 +8,16 @@
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
+
 tflite::ErrorReporter *error_reporter = nullptr;
 const tflite::Model *model = nullptr;
 tflite::MicroInterpreter *interpreter = nullptr;
 TfLiteTensor *input = nullptr;
 
-// In order to use optimized tensorflow lite kernels, a signed int8_t quantized
-// model is preferred over the legacy unsigned model format. This means that
-// throughout this project, input images must be converted from unisgned to
-// signed format. The easiest and quickest way to convert from unsigned to
-// signed 8-bit integers is to subtract 128 from the unsigned value to get a
-// signed value.
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-constexpr int scratchBufSize = 39 * 1024;
-#else
-constexpr int scratchBufSize = 0;
-#endif
 // An area of memory to use for input, output, and intermediate arrays.
-constexpr int kTensorArenaSize = 81 * 1024 + scratchBufSize;
-static uint8_t *tensor_arena; //[kTensorArenaSize]; // Maybe we should move this to external
+constexpr int kTensorArenaSize = 81 * 1024;
+static uint8_t *tensor_arena;
+
 /*! AppDetector()
    @brief constructor
    @note
@@ -75,7 +65,6 @@ void AppDetector::startDetectorTaskImpl(void *_this)
 */
 void AppDetector::detectorTask()
 {
-    xSemaphoreGive(ctx->send);
     // Set up logging. Google style is to avoid globals or statics because of
     // lifetime uncertainty, but since this has a trivial destructor it's okay.
     // NOLINTNEXTLINE(runtime-global-variables)
@@ -87,32 +76,24 @@ void AppDetector::detectorTask()
     model = tflite::GetModel(g_person_detect_model_data);
     if (model->version() != TFLITE_SCHEMA_VERSION)
     {
+        APP_LOG_ERR("tflite version error");
     }
 
     if (tensor_arena == NULL)
     {
-        tensor_arena = (uint8_t *)heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_█████████ | MALLOC_CAP_8BIT);
+        tensor_arena = (uint8_t *)heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     }
     if (tensor_arena == NULL)
     {
-        printf("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
-        return;
+        APP_LOG_ERR("arena malloc failed");
     }
-    // Pull in only the operation implementations we need.
-    // This relies on a complete list of all the ops needed by this graph.
-    // An easier approach is to just use the AllOpsResolver, but this will
-    // incur some penalty in code space for op implementations that are not
-    // needed by this graph.
-    //
-    // tflite::AllOpsResolver resolver;
-    // NOLINTNEXTLINE(runtime-global-variables)
+
     static tflite::MicroMutableOpResolver<5> micro_op_resolver;
     micro_op_resolver.AddAveragePool2D();
     micro_op_resolver.AddConv2D();
     micro_op_resolver.AddDepthwiseConv2D();
     micro_op_resolver.AddReshape();
     micro_op_resolver.AddSoftmax();
-   
 
     // Build an interpreter to run the model with.
     // NOLINTNEXTLINE(runtime-global-variables)
@@ -124,12 +105,13 @@ void AppDetector::detectorTask()
     TfLiteStatus allocate_status = interpreter->AllocateTensors();
     if (allocate_status != kTfLiteOk)
     {
-        TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
-        return;
+        APP_LOG_ERR("allocate tensors failed");
     }
 
     // Get information about the memory area to use for the model's input.
     input = interpreter->input(0);
+
+    xSemaphoreGive(ctx->send);
 
     while (1)
     {
@@ -142,29 +124,23 @@ void AppDetector::detectorTask()
                 {
                     input->data.int8[i] = ((uint8_t *)frameBuf)[i] ^ 0x80;
                 }
-                // Run the model on this input and make sure it succeeds.
-                if (kTfLiteOk != interpreter->Invoke())
-                {
-                    TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed.");
-                }
+
+                // run model
+                (!interpreter->Invoke()) ? ctx->result.success = true : ctx->result.success = false;
 
                 TfLiteTensor *output = interpreter->output(0);
-                constexpr int kPersonIndex = 1;
-                constexpr int kNotAPersonIndex = 0;
-                // Process the inference results.
-  int8_t person_score = output->data.uint8[kPersonIndex];
-  int8_t no_person_score = output->data.uint8[kNotAPersonIndex];
-                float person_score_f =
-                    (person_score - output->params.zero_point) * output->params.scale;
-                float no_person_score_f =
-                    (no_person_score - output->params.zero_point) * output->params.scale;
-                    Serial.println(person_score_f);
-                ctx->result.posConfidence = person_score_f*100;
-                ctx->result.negConfidence = no_person_score_f*100;
-                vTaskDelay(1); // to avoid watchdog trigger
+
+                float person_score_f = ((int8_t)output->data.uint8[1] - output->params.zero_point) * output->params.scale;
+                float no_person_score_f = ((int8_t)output->data.uint8[0] - output->params.zero_point) * output->params.scale;
+
+                ctx->result.posConfidence = person_score_f * 100;
+                ctx->result.negConfidence = no_person_score_f * 100;
+                ctx->result.detected = ((ctx->result.posConfidence > ctx->result.negConfidence) && (ctx->result.posConfidence > 67)) ? true : false;
+
                 xSemaphoreGive(ctx->send);
             }
         }
-        vTaskDelay(5);
+        vTaskDelay(1); // prevent watchdog trigger
+        vPortYield();
     }
 }

@@ -1,6 +1,6 @@
 
 /**
- * Created May 15, 2022
+ * Created July 12, 2022
  *
  * This work is a part of Firebase ESP Client library
  * Copyright (c) 2022 K. Suwatchai (Mobizt)
@@ -40,7 +40,7 @@
 #include <functional>
 #endif
 
-#include "FB_Net.h"
+#include "FB_Network.h"
 #include "FirebaseFS.h"
 #include "./mbfs/MB_FS.h"
 
@@ -567,6 +567,7 @@ typedef struct fb_esp_rtdb_upload_status_info_t
     MB_String localFileName;
     MB_String remotePath;
     int size = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } RTDB_UploadStatusInfo;
@@ -578,6 +579,7 @@ typedef struct fb_esp_rtdb_download_status_info_t
     MB_String localFileName;
     MB_String remotePath;
     int size = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } RTDB_DownloadStatusInfo;
@@ -637,7 +639,7 @@ typedef struct fb_esp_spi_ethernet_module_t
 #ifdef INC_ENC28J60_LWIP
     ENC28J60lwIP *enc28j60;
 #endif
-#ifdef INC_W5100_LWIP
+#ifdef INC_W5100_LWIP 
     Wiznet5100lwIP *w5100;
 #endif
 #ifdef INC_W5500_LWIP
@@ -888,6 +890,7 @@ typedef struct fb_esp_cfs_upload_status_info_t
     size_t progress = 0;
     fb_esp_cfs_upload_status status = fb_esp_cfs_upload_status_unknown;
     int size = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } CFS_UploadStatusInfo;
@@ -928,6 +931,7 @@ typedef struct fb_esp_gcs_upload_status_info_t
     MB_String localFileName;
     MB_String remoteFileName;
     int fileSize = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } UploadStatusInfo;
@@ -939,12 +943,23 @@ typedef struct fb_esp_gcs_download_status_info_t
     MB_String localFileName;
     MB_String remoteFileName;
     int fileSize = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } DownloadStatusInfo;
 
 typedef void (*UploadProgressCallback)(UploadStatusInfo);
 typedef void (*DownloadProgressCallback)(DownloadStatusInfo);
+
+#endif
+
+#ifdef ENABLE_FB_FUNCTIONS
+
+struct fb_esp_functions_config_t
+{
+    size_t upload_buffer_size = 2048;
+    size_t download_buffer_size = 2048;
+};
 
 #endif
 
@@ -962,6 +977,7 @@ typedef struct fb_esp_fcs_upload_status_info_t
     MB_String localFileName;
     MB_String remoteFileName;
     int fileSize = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } FCS_UploadStatusInfo;
@@ -973,6 +989,7 @@ typedef struct fb_esp_fcs_download_status_info_t
     MB_String localFileName;
     MB_String remoteFileName;
     int fileSize = 0;
+    int elapsedTime = 0;
     MB_String errorMsg;
 
 } FCS_DownloadStatusInfo;
@@ -1059,7 +1076,12 @@ struct fb_esp_cfg_t
 #if defined(ENABLE_FB_STORAGE)
     struct fb_esp_fcs_config_t fcs;
 #endif
-    SPI_ETH_Module spi_ethernet_module;
+
+#if defined(ENABLE_FB_FUNCTIONS)
+    struct fb_esp_functions_config_t functions;
+#endif
+
+        SPI_ETH_Module spi_ethernet_module;
     struct fb_esp_client_timeout_t timeout;
 };
 
@@ -1139,6 +1161,7 @@ struct fb_esp_rtdb_info_t
 #if defined(FIREBASE_ESP_CLIENT)
 
 #ifdef ENABLE_FB_FUNCTIONS
+
 typedef struct fb_esp_function_operation_info_t
 {
     fb_esp_functions_operation_status status = fb_esp_functions_operation_status_unknown;
@@ -1178,6 +1201,9 @@ struct fb_esp_functions_info_t
     fb_esp_functions_operation_status last_status = fb_esp_functions_operation_status_unknown;
     FunctionsOperationStatusInfo cbInfo;
     MB_String payload;
+    MB_String filepath;
+    fb_esp_mem_storage_type storageType = mem_storage_type_undefined;
+    uint32_t fileSize = 0;
 };
 
 struct fb_esp_functions_https_trigger_t
@@ -1753,12 +1779,8 @@ static const char fb_esp_pgm_str_24[] PROGMEM = "POST";
 static const char fb_esp_pgm_str_25[] PROGMEM = "GET";
 static const char fb_esp_pgm_str_26[] PROGMEM = "PATCH";
 static const char fb_esp_pgm_str_27[] PROGMEM = "DELETE";
-static const char fb_esp_pgm_str_28[] PROGMEM = "&download=";
-
-
-// We can't trust this feature anymore
-static const char fb_esp_pgm_str_29[] PROGMEM = ""; // &print=silent
-
+static const char fb_esp_pgm_str_28[] PROGMEM = "download=";
+static const char fb_esp_pgm_str_29[] PROGMEM = "print=silent";
 static const char fb_esp_pgm_str_30[] PROGMEM = " HTTP/1.1\r\n";
 static const char fb_esp_pgm_str_31[] PROGMEM = "Host: ";
 static const char fb_esp_pgm_str_32[] PROGMEM = "User-Agent: ESP\r\n";
@@ -1813,7 +1835,7 @@ static const char fb_esp_pgm_str_80[] PROGMEM = "Content-Disposition: ";
 static const char fb_esp_pgm_str_81[] PROGMEM = "application/octet-stream";
 static const char fb_esp_pgm_str_82[] PROGMEM = "attachment";
 static const char fb_esp_pgm_str_83[] PROGMEM = "unknown error";
-// static const char fb_esp_pgm_str_84[] PROGMEM = "";
+static const char fb_esp_pgm_str_84[] PROGMEM = "operations/[0]/error/code";
 static const char fb_esp_pgm_str_85[] PROGMEM = "The SD card is not available";
 static const char fb_esp_pgm_str_86[] PROGMEM = "Could not read/write the backup file";
 static const char fb_esp_pgm_str_87[] PROGMEM = "Transmission error, ";
@@ -1825,7 +1847,7 @@ static const char fb_esp_pgm_str_92[] PROGMEM = "\"blob,base64,";
 static const char fb_esp_pgm_str_93[] PROGMEM = "\"file,base64,";
 static const char fb_esp_pgm_str_94[] PROGMEM = "http connection was used by other processes";
 static const char fb_esp_pgm_str_95[] PROGMEM = "Location: ";
-static const char fb_esp_pgm_str_96[] PROGMEM = "&orderBy=";
+static const char fb_esp_pgm_str_96[] PROGMEM = "orderBy=";
 static const char fb_esp_pgm_str_97[] PROGMEM = "&limitToFirst=";
 static const char fb_esp_pgm_str_98[] PROGMEM = "&limitToLast=";
 static const char fb_esp_pgm_str_99[] PROGMEM = "&startAt=";
@@ -1884,14 +1906,14 @@ static const char fb_esp_pgm_str_151[] PROGMEM = "null_etag";
 static const char fb_esp_pgm_str_152[] PROGMEM = "Precondition Failed (ETag does not match)";
 static const char fb_esp_pgm_str_153[] PROGMEM = "X-HTTP-Method-Override: ";
 static const char fb_esp_pgm_str_154[] PROGMEM = "{\".sv\": \"timestamp\"}";
-static const char fb_esp_pgm_str_155[] PROGMEM = "&shallow=true";
+static const char fb_esp_pgm_str_155[] PROGMEM = "shallow=true";
 static const char fb_esp_pgm_str_156[] PROGMEM = "/.priority";
 static const char fb_esp_pgm_str_157[] PROGMEM = ".priority";
-static const char fb_esp_pgm_str_158[] PROGMEM = "&timeout=";
+static const char fb_esp_pgm_str_158[] PROGMEM = "timeout=";
 static const char fb_esp_pgm_str_159[] PROGMEM = "ms";
-static const char fb_esp_pgm_str_160[] PROGMEM = "&writeSizeLimit=";
+static const char fb_esp_pgm_str_160[] PROGMEM = "writeSizeLimit=";
 static const char fb_esp_pgm_str_161[] PROGMEM = ".value";
-static const char fb_esp_pgm_str_162[] PROGMEM = "&format=export";
+static const char fb_esp_pgm_str_162[] PROGMEM = "format=export";
 static const char fb_esp_pgm_str_163[] PROGMEM = "{";
 static const char fb_esp_pgm_str_164[] PROGMEM = "Flash memory was not ready";
 static const char fb_esp_pgm_str_165[] PROGMEM = "array";
@@ -1899,8 +1921,8 @@ static const char fb_esp_pgm_str_166[] PROGMEM = "\".sv\"";
 static const char fb_esp_pgm_str_167[] PROGMEM = "Transfer-Encoding: ";
 static const char fb_esp_pgm_str_168[] PROGMEM = "chunked";
 static const char fb_esp_pgm_str_169[] PROGMEM = "Maximum Redirection reached";
-static const char fb_esp_pgm_str_170[] PROGMEM = "?auth=";
-static const char fb_esp_pgm_str_171[] PROGMEM = "&auth=";
+// static const char fb_esp_pgm_str_170[] PROGMEM = "";
+// static const char fb_esp_pgm_str_171[] PROGMEM = "";
 static const char fb_esp_pgm_str_172[] PROGMEM = "&";
 static const char fb_esp_pgm_str_173[] PROGMEM = "?";
 static const char fb_esp_pgm_str_174[] PROGMEM = "#";
@@ -2185,7 +2207,7 @@ static const char fb_esp_pgm_str_446[] PROGMEM = "%[^&]";
 #if defined(FIREBASE_ESP_CLIENT)
 static const char fb_esp_pgm_str_447[] PROGMEM = "application/zip";
 static const char fb_esp_pgm_str_448[] PROGMEM = "x-goog-content-length-range: 0,104857600";
-// static const char fb_esp_pgm_str_449[] PROGMEM = "";
+static const char fb_esp_pgm_str_449[] PROGMEM = "GCLOUD_PROJECT";
 static const char fb_esp_pgm_str_450[] PROGMEM = "Archive not found";
 static const char fb_esp_pgm_str_451[] PROGMEM = "iam";
 static const char fb_esp_pgm_str_452[] PROGMEM = "autozip";
@@ -2199,7 +2221,7 @@ static const char fb_esp_pgm_str_459[] PROGMEM = "nodejs12";
 static const char fb_esp_pgm_str_460[] PROGMEM = "ALLOW_ALL";
 static const char fb_esp_pgm_str_461[] PROGMEM = "roles/cloudfunctions.invoker";
 static const char fb_esp_pgm_str_462[] PROGMEM = "allUsers";
-static const char fb_esp_pgm_str_463[] PROGMEM = "\"sourceUploadUrl\":";
+// static const char fb_esp_pgm_str_463[] PROGMEM = "\"sourceUploadUrl\":";
 static const char fb_esp_pgm_str_464[] PROGMEM = "\",";
 static const char fb_esp_pgm_str_465[] PROGMEM = ":getIamPolicy";
 static const char fb_esp_pgm_str_466[] PROGMEM = "options.requestedPolicyVersion";

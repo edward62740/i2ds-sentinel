@@ -1,11 +1,12 @@
 #include <Arduino.h>
 #include "app_ipc.h"
 #include "app_common.h"
-
+#include "app_camera.h"
+#include "app_main.h"
+#include "auxiliary/app_ui.h"
 // IPC consts
 uint8_t IPC_START = 0xAF;
 uint8_t IPC_END = 0xAC;
-
 // IPC rx buffer
 char ipc_recv_buffer[55];
 
@@ -18,7 +19,7 @@ char ipc_recv_buffer[55];
 */
 void ipcTask(void *pvParameters)
 {
-    delay(100);
+
     while (1)
     {
         if (Serial1.available()) // receive bytes if avail and parse
@@ -27,14 +28,7 @@ void ipcTask(void *pvParameters)
             ret = Serial1.readBytesUntil(IPC_END, (char *)ipc_recv_buffer, sizeof(ipc_recv_buffer)); // read until end byte
             ipcParser(ipc_recv_buffer, ret);
         }
-        vPortYield();
-        vTaskDelay(125);
-        /*log_d("Total heap: %d", ESP.getHeapSize());
-        log_d("Free heap: %d", ESP.getFreeHeap());
-        log_d("Total PSRAM: %d", ESP.getPsramSize());
-        log_d("Free PSRAM: %d", ESP.getFreePsram());
-        log_d("Free heap min: %d", ESP.getMinFreeHeap());*/
-        vTaskDelay(125);
+        vTaskDelay(10);
     }
 }
 
@@ -57,31 +51,36 @@ bool ipcParser(char *buffer, size_t len)
         return false;
     switch (tmpBuf[1]) // determine message type
     {
-    case IPC_REPORT:
+    case IPC_ERR:
     {
-        DeviceInfo tmpInfo;
-        tmpInfo.self_id = (uint16_t)((tmpBuf[2] << 8) | tmpBuf[3]);
-        tmpInfo.battery_voltage = (uint32_t)((tmpBuf[4] << 24) | (tmpBuf[5] << 16) | (tmpBuf[6] << 8) | tmpBuf[7]);
-        tmpInfo.state = (uint8_t)tmpBuf[8];
-        tmpInfo.rssi = (int8_t)tmpBuf[9];
-        tmpInfo.lqi = (uint8_t)tmpBuf[10];
+        APP_LOG_ERR("IPC ERROR");
+        if (uxQueueSpacesAvailable(uiQueue) == 0)
+            xQueueReset(uiQueue);
+        uint8_t val = 255;
+        if (xQueueSend(uiQueue, (void *)&val, 0) != 0)
+        {
+        }
+        if (uxQueueSpacesAvailable(ipcQueue) == 0)
+            xQueueReset(ipcQueue);
+        ipc_warn_t warn;
+        warn.src_id = (uint16_t)(tmpBuf[2] << 8 | tmpBuf[3]);
+        warn.rssi = tmpBuf[4];
+        warn.lqi = tmpBuf[5];
+        if (xQueueSend(ipcQueue, (void *)&warn, 0) != 0)
+        {
+        }
+
 
         break;
     }
-
-    // message upon change of device status
-    case IPC_CHANGE:
+    case 0:
     {
-        uint16_t id = (tmpBuf[2] << 8) | tmpBuf[3];
-        uint8_t state = tmpBuf[4];
-        uint8_t count = tmpBuf[6];
-        uint8_t tmpIndex = 0;
-
         break;
     }
     }
     return true;
 }
+
 /*! cmpDeviceInfo()
    @brief compares the two param and returns the difference
 

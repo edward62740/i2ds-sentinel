@@ -1,16 +1,19 @@
 #ifndef FIREBASE_CLIENT_VERSION
-#define FIREBASE_CLIENT_VERSION "3.3.6"
+#define FIREBASE_CLIENT_VERSION "4.0.3"
 #endif
 
 /**
- * Google's Firebase ESP Client Main class, Firebase_ESP_Client.h v3.3.6
+ * Google's Firebase ESP Client Main class, Firebase_ESP_Client.h v4.0.3
  *
  * This library supports Espressif ESP8266 and ESP32 MCUs
  *
- * Created May 22, 2022
+ * Created July 10, 2022
  *
  *   Updates:
- * - Fixed network interface is not ready issue which causes ESP32 crashed.
+ * - Fixed ESP8266 Ethernet W5100 compilation error.
+ * - Add ESP8266 W5100 Ethernet options to prevent compilation error in PlatformIO.
+ * - Rename MillisTimer class to MB_MillisTimer to prevent compilation error in Teensy.
+ * - Add support SdFat SDIO interface.
  *
  *
  * This work is a part of Firebase ESP Client library

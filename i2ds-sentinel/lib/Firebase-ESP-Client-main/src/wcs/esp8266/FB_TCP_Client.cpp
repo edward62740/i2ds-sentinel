@@ -1,7 +1,7 @@
 /**
- * Firebase TCP Client v1.1.20
+ * Firebase TCP Client v1.2.0
  *
- * Created April 17, 2022
+ * Created July 10, 2022
  *
  * The MIT License (MIT)
  * Copyright (c) 2022 K. Suwatchai (Mobizt)
@@ -138,7 +138,7 @@ void FB_TCP_Client::setTimeout(uint32_t timeoutmSec)
   if (wcs)
     wcs->setTimeout(timeoutmSec);
 
-  baseSetTimeout(timeoutmSec);
+  baseSetTimeout(timeoutmSec / 1000);
 }
 
 bool FB_TCP_Client::begin(const char *host, uint16_t port, int *response_code)
@@ -223,7 +223,7 @@ bool FB_TCP_Client::ethLinkUp()
     goto ex;
   }
 #endif
-#if defined(INC_W5100_LWIP)
+#if defined(INC_W5500_LWIP)
   if (eth->w5500)
   {
     ret = eth->w5500->status() == WL_CONNECTED;
@@ -256,7 +256,7 @@ void FB_TCP_Client::ethDNSWorkAround()
   if (eth->w5100)
     goto ex;
 #endif
-#if defined(INC_W5100_LWIP)
+#if defined(INC_W5500_LWIP)
   if (eth->w5500)
     goto ex;
 #endif
