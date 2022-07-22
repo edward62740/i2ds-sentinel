@@ -103,7 +103,6 @@ jobs:
         - "examples/Storage/GoogleCloudStorage/ListFiles/ListFiles.ino"
         - "examples/Storage/GoogleCloudStorage/Metadata/Metadata.ino"
         - "examples/Storage/GoogleCloudStorage/UploadFile/UploadFile.ino"
-
     steps:
     - uses: actions/checkout@v2
     - name: Cache pip
@@ -123,7 +122,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade platformio
-    - name: Install 3rd party dependecies
+
+    - name: Unstall library
+      run: | 
+        pio lib --global uninstall \
+        https://github.com/mobizt/Firebase-ESP-Client
+        
+    - name: Install library
       run: | 
         pio lib -g install \
         https://github.com/mobizt/Firebase-ESP-Client
@@ -254,7 +259,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
 
-    - name: Install 3rd party dependecies
+    - name: Unstall library
+      run: | 
+        pio lib --global uninstall \
+        https://github.com/mobizt/Firebase-ESP-Client
+        
+    - name: Install library
       run: | 
         pio lib -g install \
         https://github.com/mobizt/Firebase-ESP-Client
