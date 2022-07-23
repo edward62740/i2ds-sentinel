@@ -2,6 +2,7 @@
 #define APP_CAMERA_H
 #include "esp_camera.h"
 #include "app_main.h"
+
 /* This class is used to perform camera capture, image saving to SPIFFS and configuration */
 class AppCamera
 {
@@ -12,7 +13,7 @@ public:
     esp_err_t init();
     uint8_t *captureGreyscale();
     void returnFrameBuffer();
-    String switchToJPEG(ipc_warn_t &info);
+    String switchToJPEG(ipc_warn_t &info, bool init = true);
     void switchToGreyscale();
 
 private:

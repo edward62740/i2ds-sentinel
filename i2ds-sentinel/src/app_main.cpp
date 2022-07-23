@@ -21,12 +21,31 @@ TaskHandle_t dt;
 QueueHandle_t ipcQueue;
 TimerHandle_t ipcWarningRateLimiter;
 TimerHandle_t firebaseUpdateTimer;
+TimerHandle_t detectorOnHoldTimer;
 QueueHandle_t firebaseSendPayloadQueue;
 QueueHandle_t firebasePostQueue;
 bool updateFirebase = false;
+bool holdDetector = false;
+bool requireCameraInitToGreyscale = true;
+
+/*! detectorOnHoldTimerCallback()
+   @brief callback for Firebase regular updates
+
+
+   @note sets flag at interval FIREBASE_UPDATE_INTERVAL_MS, aborted if request in progress
+
+   @param firebaseUpdateTimer FreeRTOS timer handle
+*/
+void detectorOnHoldTimerCallback(TimerHandle_t detectorOnHoldTimer)
+{
+    holdDetector = false;
+    APP_LOG_INFO("---------------DECTECTOR FREED----------------");
+    requireCameraInitToGreyscale = true;
+}
 
 /*! firebaseUpdateTimerCallback()
    @brief callback for Firebase regular updates
+
 
    @note sets flag at interval FIREBASE_UPDATE_INTERVAL_MS, aborted if request in progress
 
@@ -38,6 +57,11 @@ void firebaseUpdateTimerCallback(TimerHandle_t firebaseUpdateTimer)
     APP_LOG_INFO("Firebase update requested");
 }
 
+/*! fcsUploadCallback()
+   @brief callback for Firebase storage uploads
+   @note
+   @param info FCS_UploadStatusInfo
+*/
 void fcsUploadCallback(FCS_UploadStatusInfo info)
 {
     if (info.status == fb_esp_fcs_upload_status_init)
@@ -69,16 +93,28 @@ void fcsUploadCallback(FCS_UploadStatusInfo info)
     }
 }
 
+/*! appMainTask()
+   @brief main task for sentinel. intializes camera, detector, and firebase.
+   if nothing else to do, waits until detector ctx passes semaphore, then takes image and passes image pointer and semaphore back to detector.
+   else rx ipc_warn_t from ipcQueue, switches camera mode to jpeg and commands camera to take image. image is passed back to this task through
+   img_info_t from firebaseSendPayloadQueue, sent to firebase STORAGE, deleted from SPIFFS, then passed to firebasePostQueue to be appended to firebase RTDB.
+   and for every FIREBASE_UPDATE_INTERVAL_MS updates self status info in firebase RTDB.
+   @note
+
+   @param void
+*/
 void appMainTask(void *pvParameters)
 {
 
     esp_task_wdt_init(15, true);
     appDet.startDetectorTask(dt); // Start detector task with task handle dt
-    ipcQueue = xQueueCreate(2, sizeof(ipc_warn_t));
+
     ipcWarningRateLimiter = xTimerCreate("ipcWarningRateLimiter", pdMS_TO_TICKS(5500), pdFALSE, NULL, NULL);
     firebaseUpdateTimer = xTimerCreate("firebaseUpdateTimer", pdMS_TO_TICKS(5000), pdTRUE, NULL, firebaseUpdateTimerCallback);
+    detectorOnHoldTimer = xTimerCreate("detectorOnHoldTimer", pdMS_TO_TICKS(20000), pdFALSE, NULL, detectorOnHoldTimerCallback);
     firebaseSendPayloadQueue = xQueueCreate(2, sizeof(img_info_t));
     firebasePostQueue = xQueueCreate(5, sizeof(img_info_t));
+        ipcQueue = xQueueCreate(2, sizeof(ipc_warn_t));
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(devicename.c_str()); // define hostname
@@ -151,10 +187,10 @@ void appMainTask(void *pvParameters)
             }
             updateFirebase = false;
         }
-        /* Detector indicates it is ready by giving the semaphore */
-        if (xSemaphoreTake(det_ctx.send, 1) == pdTRUE)
+        /* Detector indicates it is ready by giving the semaphore. Do not take if holdDetector is set */
+        if (!holdDetector && (xSemaphoreTake(det_ctx.send, 1) == pdTRUE))
         {
-            /* Log results of detection */
+            /* Log results of detection from previous frame */
             if (det_ctx.result.success)
             {
                 if (det_ctx.result.detected)
@@ -166,6 +202,14 @@ void appMainTask(void *pvParameters)
             }
             else
                 APP_LOG_INFO("[DETECTOR] ERROR DETECTING");
+
+            /* If detector was previously on hold from jpeg mode, reinit greyscale mode */
+            if (requireCameraInitToGreyscale)
+            {
+                requireCameraInitToGreyscale = false;
+                appCam.switchToGreyscale();
+                APP_LOG_INFO("---------------SW GREYSCALE----------------");
+            }
 
             /* Capture new image and pass returned pointer to detector */
             if (uxQueueSpacesAvailable(det_ctx.frame) == 0)
@@ -197,15 +241,19 @@ void appMainTask(void *pvParameters)
             ipc_warn_t warn;
             if (xQueueReceive(ipcQueue, &warn, 1) == pdPASS)
             {
+                String filename = appCam.switchToJPEG(warn, holdDetector ? false : true);
+                if (!holdDetector)
+                    APP_LOG_INFO("---------------SW JPEG----------------");
+                holdDetector = true;
+                APP_LOG_INFO("---------------DECTECTOR BLOCKED----------------");
+                xTimerReset(detectorOnHoldTimer, 0);
+
                 APP_LOG_WARN("IPC WARNING STARTS HERE");
                 APP_LOG_WARN(warn.src_id);
                 APP_LOG_WARN(warn.rssi);
                 APP_LOG_WARN(warn.lqi);
 
                 APP_LOG_WARN("RATE LIMITER NOT RUNNING");
-                String filename = appCam.switchToJPEG(warn);
-
-                appCam.switchToGreyscale();
             }
         }
 

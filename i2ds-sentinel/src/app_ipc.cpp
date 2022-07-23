@@ -75,6 +75,7 @@ bool ipcParser(char *buffer, size_t len)
     }
     case 0:
     {
+        // dump ipc keepalives for now
         break;
     }
     }
