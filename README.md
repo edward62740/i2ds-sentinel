@@ -1,4 +1,4 @@
-# I2DS Sentinel
+# I<sup>2</sup>DS Sentinel
 
 ## Overview
 This is part of [I<sup>2</sup>DS](https://github.com/edward62740/i2ds). Utilizes tflite-micro person detector model to detect the presence of people, as well as capture photos when requested by other sensors within the network.
@@ -40,9 +40,14 @@ The workaround used was to wait for min. 150ms after restarting the camera in or
 <br>
 Note: Due to limited IO, io12 was used for UART rx. ESP32 must be configured in efuse to disregard io12 as strapping pin for VDD_SDIO regulator, or it will fail to boot.
 
+## Mobile App
+
+Captured images and other information can be viewed through the same app as the I<sup>2</sup>DS main system.
+
+<img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/app.jpg" alt="app" width="250"/> tbd 
+
 ## Integration with I2DS
 This device will work with I2DS from commit [#9158914](https://github.com/edward62740/I2DS/commit/91589148e6d0b51ad65f4bae4d2b9b4c82a5fe6a).
-
 
 
 
