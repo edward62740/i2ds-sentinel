@@ -37,6 +37,8 @@ _The build flags in platformio.ini must be used or the code will not compile wit
 The OV2640 camera was not performant upon restart to JPEG mode, often lacking brightness and appearing tinted. This appears to be a known issue (https://github.com/espressif/esp32-camera/issues/314), (https://github.com/espressif/esp32-camera/issues/383) related to the camera AWB. <br>
 The workaround used was to wait for min. 150ms after restarting the camera in order to get a vaguely usable frame, then to persist in JPEG mode until it is no longer needed (implemented in commit [#b9b3d20](https://github.com/edward62740/i2ds-sentinel/commit/b9b3d20fc2c7c2deef02794aad9a063e34ca1ace)). <br><br>
 
+<br>
+Note: Due to limited IO, io12 was used for UART rx. ESP32 must be configured in efuse to disregard io12 as strapping pin for VDD_SDIO regulator, or it will fail to boot.
 
 ## Integration with I2DS
 This device will work with I2DS from commit [#9158914](https://github.com/edward62740/I2DS/commit/91589148e6d0b51ad65f4bae4d2b9b4c82a5fe6a).
