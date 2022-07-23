@@ -59,7 +59,7 @@ void AppDetector::startDetectorTaskImpl(void *_this)
 }
 
 /*! detectorTask()
-   @brief task to run person detection when frame pointer is sent over ctx frame queue
+   @brief task to run person detection when frame pointer is sent over ctx frame queue. should be starved of ctx->send to yield cpu1.
    @note
    @param void
 */
@@ -120,12 +120,14 @@ void AppDetector::detectorTask()
             uint8_t *frameBuf;
             if (xQueueReceive(ctx->frame, &frameBuf, 1) == pdPASS)
             {
+
+                // crop to 96 x 96 and xor with 0x80 to pass to model input of size int8
                 for (int i = 0; i < imageWidth * imageHeight; i++)
                 {
                     input->data.int8[i] = ((uint8_t *)frameBuf)[i] ^ 0x80;
                 }
 
-                // run model
+                // run model --- LONG RUNNING OPERATION ---
                 (!interpreter->Invoke()) ? ctx->result.success = true : ctx->result.success = false;
 
                 TfLiteTensor *output = interpreter->output(0);
@@ -135,7 +137,7 @@ void AppDetector::detectorTask()
 
                 ctx->result.posConfidence = person_score_f * 100;
                 ctx->result.negConfidence = no_person_score_f * 100;
-                ctx->result.detected = ((ctx->result.posConfidence > ctx->result.negConfidence) && (ctx->result.posConfidence > 67)) ? true : false;
+                ctx->result.detected = ((ctx->result.posConfidence > ctx->result.negConfidence) && (ctx->result.posConfidence > DETECTOR_POS_THRESHOLD)) ? true : false;
 
                 xSemaphoreGive(ctx->send);
             }
