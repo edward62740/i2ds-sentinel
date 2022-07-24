@@ -46,6 +46,10 @@ Captured images and other information can be viewed through the same app as the 
 
 <img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/app.jpg" alt="app" width="250"/>
 
+
+## Privacy Concerns
+Queueing a request to capture a frame (to upload to Firebase) can only be triggered by a warning packet from the internal sensor network. The only requests forwarded to the internal sensor network are state change requests. Hence, it should difficult to falsely trigger this device to take a picture in such a way that privacy is compromised, without the attacker first having physical access and/or security key of the sensor network + appropriate sub-GHz transmitting device, and the Firebase access key.
+
 ## Integration with I2DS
 This device will work with I2DS from commit [#9158914](https://github.com/edward62740/I2DS/commit/91589148e6d0b51ad65f4bae4d2b9b4c82a5fe6a).
 
