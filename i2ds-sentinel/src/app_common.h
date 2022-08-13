@@ -36,6 +36,12 @@ const int PCLK_GPIO_NUM = 22;
 #define EUSART_IPC_BAUD 921600
 #define WIFI_SSID "█████████"
 #define WIFI_PASSWORD "█████████"
+#define INFLUXDB_URL "█████████"
+#define INFLUXDB_TOKEN "█████████"
+#define INFLUXDB_ORG "█████████"
+#define INFLUXDB_BUCKET "█████████"
+#define TZ_INFO "SGT-8"
+#define MUTE_DEVICE false
 #define DEBUG 1
 #ifdef DEBUG
 #define DEBUG_LOGS 1
@@ -49,26 +55,26 @@ const int PCLK_GPIO_NUM = 22;
         if (DEBUG_LOGS)           \
             Serial.begin(115200); \
     } while (0)
-#define APP_LOG_INFO(...)                                   \
-    do                                                      \
-    {                                                       \
-        if (DEBUG_LOGS)                                     \
-            Serial.print("(" + (String)millis() + ") I: "); \
-        Serial.println(__VA_ARGS__);                        \
+#define APP_LOG_INFO(...)                                                                  \
+    do                                                                                     \
+    {                                                                                      \
+        if (DEBUG_LOGS)                                                                    \
+            Serial.print("(" + (String)millis() + ") [" + __FILE__ + "] I: "); \
+        Serial.println(__VA_ARGS__);                                                       \
     } while (0)
-#define APP_LOG_WARN(...)                                   \
-    do                                                      \
-    {                                                       \
-        if (DEBUG_LOGS)                                     \
-            Serial.print("(" + (String)millis() + ") W: "); \
-        Serial.println(__VA_ARGS__);                        \
+#define APP_LOG_WARN(...)                                                                  \
+    do                                                                                     \
+    {                                                                                      \
+        if (DEBUG_LOGS)                                                                    \
+            Serial.print("(" + (String)millis() + ") [" + __FILE__ + "] W: "); \
+        Serial.println(__VA_ARGS__);                                                       \
     } while (0)
-#define APP_LOG_ERR(...)                                    \
-    do                                                      \
-    {                                                       \
-        if (DEBUG_LOGS)                                     \
-            Serial.print("(" + (String)millis() + ") E: "); \
-        Serial.println(__VA_ARGS__);                        \
+#define APP_LOG_ERR(...)                                                                   \
+    do                                                                                     \
+    {                                                                                      \
+        if (DEBUG_LOGS)                                                                    \
+            Serial.print("(" + (String)millis() + ") [" + __FILE__ + "] E: "); \
+        Serial.println(__VA_ARGS__);                                                       \
     } while (0)
 
 #define IPC_RESPONSE_TIMEOUT_MS 2000                 // Sensor poll interval
@@ -87,7 +93,8 @@ const int PCLK_GPIO_NUM = 22;
 #define MAX_FIREBASE_ERROR_QUEUE 10
 #define MAX_PENDING_DEVICEINFO_QUEUE 10
 #define MAX_FIREBASE_REQUEST_QUEUE 10
-
+#define AUX_LED_DETPOS_FLASH_MS 225
+#define AUX_LED_DETPOS_CYCLE_MS 2500
 
 #define DETECTOR_POS_THRESHOLD 67
 const uint16_t imageWidth = 96;

@@ -8,12 +8,15 @@
 #include "Firebase_ESP_Client.h"
 #include <esp_task_wdt.h>
 #include <addons/TokenHelper.h>
+#include <InfluxDbClient.h>
+#include <InfluxDbCloud.h>
 
 String devicename = "I2DS SENTINEL";
 AppCamera appCam((uint8_t)IR_LED);
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
+InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 /* Pass context to app detector object */
 detector_ctx_t det_ctx;
 AppDetector appDet(&det_ctx);
@@ -27,6 +30,8 @@ QueueHandle_t firebasePostQueue;
 bool updateFirebase = false;
 bool holdDetector = false;
 bool requireCameraInitToGreyscale = true;
+uint8_t det_pos_window = 0;
+Point Sentinel("Sentinel");
 
 /*! detectorOnHoldTimerCallback()
    @brief callback for Firebase regular updates
@@ -64,33 +69,7 @@ void firebaseUpdateTimerCallback(TimerHandle_t firebaseUpdateTimer)
 */
 void fcsUploadCallback(FCS_UploadStatusInfo info)
 {
-    if (info.status == fb_esp_fcs_upload_status_init)
-    {
-        Serial.printf("Uploading file %s (%d) to %s\n", info.localFileName.c_str(), info.fileSize, info.remoteFileName.c_str());
-    }
-    else if (info.status == fb_esp_fcs_upload_status_upload)
-    {
-        Serial.printf("Uploaded %d%s, Elapsed time %d ms\n", (int)info.progress, "%", info.elapsedTime);
-    }
-    else if (info.status == fb_esp_fcs_upload_status_complete)
-    {
-        Serial.println("Upload completed\n");
-        FileMetaInfo meta = fbdo.metaData();
-        Serial.printf("Name: %s\n", meta.name.c_str());
-        Serial.printf("Bucket: %s\n", meta.bucket.c_str());
-        Serial.printf("contentType: %s\n", meta.contentType.c_str());
-        Serial.printf("Size: %d\n", meta.size);
-        Serial.printf("Generation: %lu\n", meta.generation);
-        Serial.printf("Metageneration: %lu\n", meta.metageneration);
-        Serial.printf("ETag: %s\n", meta.etag.c_str());
-        Serial.printf("CRC32: %s\n", meta.crc32.c_str());
-        Serial.printf("Token: %s\n", meta.downloadTokens.c_str());
-        Serial.printf("Download URL: %s\n\n", fbdo.downloadURL().c_str());
-    }
-    else if (info.status == fb_esp_fcs_upload_status_error)
-    {
-        Serial.printf("Upload failed, %s\n", info.errorMsg.c_str());
-    }
+   // SPIFFS.remove(info.localFileName.c_str());
 }
 
 /*! appMainTask()
@@ -107,14 +86,14 @@ void appMainTask(void *pvParameters)
 {
 
     esp_task_wdt_init(15, true);
-    appDet.startDetectorTask(dt); // Start detector task with task handle dt
+    appDet.startDetectorTask(dt, 1, 1); // Start detector task with task handle dt on core 1
 
     ipcWarningRateLimiter = xTimerCreate("ipcWarningRateLimiter", pdMS_TO_TICKS(5500), pdFALSE, NULL, NULL);
     firebaseUpdateTimer = xTimerCreate("firebaseUpdateTimer", pdMS_TO_TICKS(5000), pdTRUE, NULL, firebaseUpdateTimerCallback);
-    detectorOnHoldTimer = xTimerCreate("detectorOnHoldTimer", pdMS_TO_TICKS(20000), pdFALSE, NULL, detectorOnHoldTimerCallback);
+    detectorOnHoldTimer = xTimerCreate("detectorOnHoldTimer", pdMS_TO_TICKS(30000), pdFALSE, NULL, detectorOnHoldTimerCallback);
     firebaseSendPayloadQueue = xQueueCreate(2, sizeof(img_info_t));
     firebasePostQueue = xQueueCreate(5, sizeof(img_info_t));
-        ipcQueue = xQueueCreate(2, sizeof(ipc_warn_t));
+    ipcQueue = xQueueCreate(2, sizeof(ipc_warn_t));
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
     WiFi.setHostname(devicename.c_str()); // define hostname
@@ -126,20 +105,23 @@ void appMainTask(void *pvParameters)
         vTaskDelay(3500);
     }
 
+    Firebase.RTDB.setMaxRetry(&fbdo, 3);
+    Firebase.RTDB.setMaxErrorQueue(&fbdo, 5);
+    // Firebase.RTDB.allowMultipleRequests(&fbdo);
     Firebase.reconnectWiFi(true);
     fbdo.setResponseSize(FIREBASE_DATA_OBJECT_PAYLOAD_SIZE_BYTES);
     config.api_key = API_KEY;
     config.database_url = DATABASE_URL;
     config.fcs.upload_buffer_size = 8192;
-    config.tcp_data_sending_retry = 5;
+    config.tcp_data_sending_retry = 15;
     config.timeout.wifiReconnect = 10 * 1000;
-    config.timeout.socketConnection = 6 * 1000;
-    config.timeout.serverResponse = 8 * 1000;
+    config.timeout.socketConnection = 15 * 1000;
+    config.timeout.serverResponse = 15 * 1000;
     config.timeout.rtdbKeepAlive = 30 * 1000;
     config.timeout.rtdbStreamReconnect = 1 * 1000;
     config.timeout.rtdbStreamError = 3 * 1000;
-    Firebase.signUp(&config, &auth, "", "");
     config.token_status_callback = tokenStatusCallback;
+    Firebase.signUp(&config, &auth, "", "");
     Firebase.begin(&config, &auth);
 
     if (appCam.init() != ESP_OK)
@@ -147,10 +129,16 @@ void appMainTask(void *pvParameters)
         APP_LOG_INFO("[INIT] ERROR INITIALIZING CAMERA");
         vTaskDelay(1000);
     }
+    timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
 
+    client.setHTTPOptions(HTTPOptions().httpReadTimeout(200));
+    client.setHTTPOptions(HTTPOptions().connectionReuse(true));
+    // Check server connection
+    client.validateConnection();
     xTimerStart(firebaseUpdateTimer, 0);
 
     Firebase.RTDB.deleteNode(&fbdo, "/sentinel");
+
     while (1)
     {
         if (WiFi.status() != WL_CONNECTED)
@@ -161,17 +149,21 @@ void appMainTask(void *pvParameters)
             vTaskDelay(3500);
         }
 
-        if (updateFirebase)
+        if (updateFirebase && uxQueueMessagesWaiting(firebaseSendPayloadQueue) == 0)
         {
+            APP_LOG_INFO("UPDATING FIREBASE");
             FirebaseJson selfInfoJson;
             String device = "/sentinel";
             selfInfoJson.set("timestamp/.sv", "timestamp");
-            selfInfoJson.add("trigd", "test");
+            selfInfoJson.add("wifi", (String)WIFI_SSID);
+            selfInfoJson.add("alert", 0);
             while (uxQueueMessagesWaiting(firebasePostQueue) > 0)
             {
+                selfInfoJson.add("alert", 1);
                 img_info_t info;
                 if (xQueueReceive(firebasePostQueue, &info, 1) == pdPASS)
                 {
+                    APP_LOG_WARN("APPENDING NEW IMAGE DATA TO FIREBASE");
                     FirebaseJson imgInfoJson;
                     imgInfoJson.set("Source Node", info.ipc_info.src_id);
                     imgInfoJson.set("RSSI", info.ipc_info.rssi);
@@ -180,11 +172,21 @@ void appMainTask(void *pvParameters)
                     selfInfoJson.set((String)info.index, imgInfoJson);
                 }
             }
-            APP_LOG_INFO("[INIT] UPDATING FIREBASE");
+
             if (!Firebase.RTDB.updateNode(&fbdo, device, &selfInfoJson))
             {
+                APP_LOG_ERR("FAILED TO UPDATE FIREBASE");
                 APP_LOG_ERR(fbdo.errorReason().c_str());
             }
+            Sentinel.clearFields();
+            Sentinel.clearTags();
+            Sentinel.addTag("UID", "N/A");
+            Sentinel.addField("DetectionResult", (det_pos_window > 0) ? true : false);
+            if (!client.writePoint(Sentinel))
+            {
+                APP_LOG_ERR("INFLUXDB UPLOAD ERROR");
+            }
+
             updateFirebase = false;
         }
         /* Detector indicates it is ready by giving the semaphore. Do not take if holdDetector is set */
@@ -194,14 +196,17 @@ void appMainTask(void *pvParameters)
             if (det_ctx.result.success)
             {
                 if (det_ctx.result.detected)
-                    APP_LOG_INFO("[DETECTOR] DETECTED");
+                    det_pos_window = 5;
                 else
-                    APP_LOG_INFO("[DETECTOR] NOT DETECTED");
-                APP_LOG_INFO("[DETECTOR] Person detected score: " + (String)det_ctx.result.posConfidence);
-                APP_LOG_INFO("[DETECTOR] No person detected score: " + (String)det_ctx.result.negConfidence);
+                {
+                    if (det_pos_window > 0)
+                        det_pos_window--;
+                }
+                APP_LOG_INFO("Person detected score: " + (String)det_ctx.result.posConfidence);
+                APP_LOG_INFO("No person detected score: " + (String)det_ctx.result.negConfidence);
             }
             else
-                APP_LOG_INFO("[DETECTOR] ERROR DETECTING");
+                APP_LOG_INFO("ERROR DETECTING");
 
             /* If detector was previously on hold from jpeg mode, reinit greyscale mode */
             if (requireCameraInitToGreyscale)
@@ -234,7 +239,6 @@ void appMainTask(void *pvParameters)
             Firebase.begin(&config, &auth);
         }
 
-        // APP_LOG_INFO(WiFi.RSSI());
         /* Handle IPC warning. Payload information is sent to Firebase RTDB /SENTINEL/last and image is sent to database */
         if (uxQueueMessagesWaiting(ipcQueue) > 0)
         {
@@ -247,13 +251,6 @@ void appMainTask(void *pvParameters)
                 holdDetector = true;
                 APP_LOG_INFO("---------------DECTECTOR BLOCKED----------------");
                 xTimerReset(detectorOnHoldTimer, 0);
-
-                APP_LOG_WARN("IPC WARNING STARTS HERE");
-                APP_LOG_WARN(warn.src_id);
-                APP_LOG_WARN(warn.rssi);
-                APP_LOG_WARN(warn.lqi);
-
-                APP_LOG_WARN("RATE LIMITER NOT RUNNING");
             }
         }
 
@@ -262,9 +259,8 @@ void appMainTask(void *pvParameters)
             img_info_t info;
             if (xQueueReceive(firebaseSendPayloadQueue, &info, 1) == pdPASS)
             {
-                if (Firebase.Storage.upload(&fbdo, STORAGE_BUCKET_ID /* Firebase Storage bucket id */, info.path /* path to local file */, mem_storage_type_flash /* memory storage type, mem_storage_type_flash and mem_storage_type_sd */, info.path /* path of remote file stored in the bucket */, "image/jpeg" /* mime type */, fcsUploadCallback))
+                if (Firebase.Storage.upload(&fbdo, STORAGE_BUCKET_ID /* Firebase Storage bucket id */, info.path /* path to local file */, mem_storage_type_flash /* memory storage type, mem_storage_type_flash and mem_storage_type_sd */, info.path /* path of remote file stored in the bucket */, "image/jpeg" /* mime type */))
                 {
-                    Serial.printf("\nDownload URL: %s\n", fbdo.downloadURL().c_str());
                     // todo spiffs remove file
                     info.send_done = true;
                     if (xQueueSendToFront(firebasePostQueue, (void *)&info, 0) != 0)
@@ -273,7 +269,8 @@ void appMainTask(void *pvParameters)
                 }
                 else
                 {
-                    Serial.println(fbdo.errorReason());
+                    APP_LOG_ERR("FIREBASE STORAGE ERROR");
+                    APP_LOG_ERR(fbdo.errorReason());
                     info.send_err = true;
                     xQueueSendToBack(firebaseSendPayloadQueue, (void *)&info, 0);
                 }

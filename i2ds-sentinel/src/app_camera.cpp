@@ -67,31 +67,7 @@ esp_err_t AppCamera::init()
 */
 uint8_t *AppCamera::captureGreyscale()
 {
-   // digitalWrite(flash_ctrl, HIGH);
    this->frame = esp_camera_fb_get();
-   // digitalWrite(flash_ctrl, LOW);
-   // uint8_t *tmpbuf = (uint8_t *)heap_caps_malloc(50000, MALLOC_CAP_█████████ | MALLOC_CAP_8BIT);
-   // size_t tmpbuf_len;
-   // frame2jpg(this->frame, 31, &tmpbuf, &tmpbuf_len);
-   /*
-      APP_LOG_INFO(xPortGetFreeHeapSize());
-      APP_LOG_INFO((uint32_t)tmpbuf_len);
-      File file = SPIFFS.open(FILE_PHOTO, FILE_WRITE);
-      if (!file)
-      {
-         Serial.println("Failed to open file in writing mode");
-      }
-      else
-      {
-         file.write(tmpbuf, tmpbuf_len); // payload (image), payload length
-         Serial.print("The picture has been saved in ");
-         Serial.print(FILE_PHOTO);
-         Serial.print(" - Size: ");
-         Serial.print(tmpbuf_len);
-         Serial.println(" bytes");
-      }
-      free(tmpbuf);
-      file.close();*/
    return this->frame->buf;
 }
 
@@ -146,7 +122,7 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
       config.fb_count = 1;
       esp_err_t ret = esp_camera_init(&config);
       sensor_t *s = esp_camera_sensor_get();
-      s->set_brightness(s, -2);
+      s->set_brightness(s, 0);
       s->set_contrast(s, -2);
       s->set_saturation(s, -2);                // -2 to 2
       s->set_special_effect(s, 0);             // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint, 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
@@ -156,7 +132,7 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
       s->set_exposure_ctrl(s, 1);              // 0 = disable , 1 = enable
       s->set_aec2(s, 0);                       // 0 = disable , 1 = enable
       s->set_ae_level(s, 2);                   // -2 to 2
-      s->set_aec_value(s, 400);                // 0 to 1200
+      s->set_aec_value(s, 1024);               // 0 to 1200
       s->set_gain_ctrl(s, 0);                  // 0 = disable , 1 = enable
       s->set_agc_gain(s, 0);                   // 0 to 30
       s->set_gainceiling(s, (gainceiling_t)6); // 0 to 6
@@ -168,12 +144,11 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
       s->set_vflip(s, 0);                      // 0 = disable , 1 = enable
       s->set_dcw(s, 0);                        // 0 = disable , 1 = enable
       s->set_colorbar(s, 0);                   // 0 = disable , 1 = enable
-        vTaskDelay(150);
+      vTaskDelay(150);
    }
    digitalWrite(flash_ctrl, HIGH);
-    
+
    camera_fb_t *tmpFb = esp_camera_fb_get();
-   digitalWrite(flash_ctrl, LOW);
 
    String filename = "/sentinel/" + (String)this->capture_counter;
    img_info_t img_info;
@@ -202,7 +177,7 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
 
       file.close();
    }
-
+   digitalWrite(flash_ctrl, LOW);
    if (uxQueueSpacesAvailable(firebaseSendPayloadQueue) == 0)
       xQueueReset(firebaseSendPayloadQueue);
    if (xQueueSend(firebaseSendPayloadQueue, (void *)&img_info, 0) != 0)

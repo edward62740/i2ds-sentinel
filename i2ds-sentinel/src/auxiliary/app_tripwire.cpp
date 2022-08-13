@@ -1,14 +1,23 @@
 #include <Arduino.h>
 #include "app_common.h"
 #include "app_tripwire.h"
+#include "app_ui.h"
 #include "vl53l1x.h"
 #include "LIS2DW12.h"
 
 VL53L1X tw;
-LIS2DW12 IMU( I2C_MODE, 0x19, SPISettings(0, MSBFIRST, SPI_MODE0) );
+LIS2DW12 IMU(I2C_MODE, 0x19, SPISettings(0, MSBFIRST, SPI_MODE0));
+TimerHandle_t tripwireTimer;
+void tripwireTimerCallback(TimerHandle_t tripwireTimer)
+{
+    uint8_t val = 122;
+    xQueueSend(uiQueue, (void *)&val, 0);
+    APP_LOG_INFO("FLASH LED");
+}
 
 void tripwireTask(void *pvParameters)
 {
+    tripwireTimer = xTimerCreate("tripwireTimer", 1000, pdFALSE, NULL, tripwireTimerCallback);
     tw.setTimeout(500);
     IMU.begin();
     if (!tw.init())
@@ -24,27 +33,20 @@ void tripwireTask(void *pvParameters)
     // medium and long distance modes. See the VL53L1X datasheet for more
     // information on range and timing limits.
     tw.setDistanceMode(VL53L1X::Long);
-    tw.setMeasurementTimingBudget(15000);
+    tw.setMeasurementTimingBudget(200000);
     tw.setROISize(8, 8);
-    //tw.setROICenter(87);
-    // Start continuous readings at a rate of one measurement every 50 ms (the
-    // inter-measurement period). This period should be at least as long as the
-    // timing budget.
-    tw.startContinuous(15);
+    tw.startContinuous(250);
     while (1)
     {
         tw.read();
-/*
-        Serial.print("range: ");
-        Serial.print(tw.ranging_data.range_mm);
-        Serial.print("\tstatus: ");
-        Serial.print(VL53L1X::rangeStatusToString(tw.ranging_data.range_status));
-        Serial.print("\tpeak signal: ");
-        Serial.print(tw.ranging_data.peak_signal_count_rate_MCPS);
-        Serial.print("\tambient: ");
-        Serial.print(tw.ranging_data.ambient_count_rate_MCPS);
-
-        Serial.println();*/
+        if ((tw.ranging_data.range_mm < 90 && tw.ranging_data.range_mm > 45) && xTimerIsTimerActive(tripwireTimer) == pdFALSE)
+        {
+            xTimerStart(tripwireTimer, 0);
+        }
+        else if (tw.ranging_data.range_mm >= 90 || tw.ranging_data.range_mm <= 45)
+        {
+            xTimerStop(tripwireTimer, 0);
+        }
         vTaskDelay(50);
     }
 }

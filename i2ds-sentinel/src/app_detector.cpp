@@ -42,9 +42,9 @@ AppDetector::~AppDetector() {}
    @note
    @param handle task handle to be given to detector
 */
-void AppDetector::startDetectorTask(TaskHandle_t handle)
+void AppDetector::startDetectorTask(TaskHandle_t handle, UBaseType_t priority, BaseType_t coreId)
 {
-    xTaskCreatePinnedToCore(this->startDetectorTaskImpl, "detector", 8192, this, 1, &handle, 1);
+    xTaskCreatePinnedToCore(this->startDetectorTaskImpl, "detector", 8192, this, priority, &handle, coreId);
     this->task = &handle;
 }
 

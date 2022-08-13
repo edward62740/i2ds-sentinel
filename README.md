@@ -7,8 +7,10 @@ This is part of [I<sup>2</sup>DS](https://github.com/edward62740/i2ds). Utilizes
 
 ## Operation
 This device performs a few main functions:
-* Uses person detection to detect presence of humans + _ongoing_ visualize activity over time (https://github.com/edward62740/i2ds-sentinel/issues/7)
+* Uses person detection to detect presence of humans + visualize activity over time
 * Takes pictures when intrusion is detected by the internal sensor network and uploads to Firebase storage to be viewed through app
+
+<img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/persondetectorimg.png" alt="sentinel" width="400"/>
 
 ## Hardware
 * ESP32-CAM board with 4Mb PSRAM (mounted on 2.54mm sockets above mainboard)

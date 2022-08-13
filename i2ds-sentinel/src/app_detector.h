@@ -22,7 +22,7 @@ class AppDetector
 public:
     AppDetector(detector_ctx_t *ctx);
     ~AppDetector();
-    void startDetectorTask(TaskHandle_t handle);
+    void startDetectorTask(TaskHandle_t handle, UBaseType_t priority, BaseType_t coreId);
 
 private:
     TaskHandle_t *task;
