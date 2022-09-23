@@ -48,6 +48,9 @@ Captured images and other information can be viewed through the same app as the 
 
 <img src="https://github.com/edward62740/i2ds-sentinel/blob/master/Documentation/app.jpg" alt="app" width="250"/>
 
+## Low-Light Mods
+Removing the IR filter from the OV2640 increased low-light performance while not significantly degrading daylight performance (for indoor use only).
+The flash LED was replaced with a VCSEL IR illuminator.
 
 ## Privacy Concerns
 Queueing a request to capture a frame to upload to Firebase can only be triggered by a warning packet from the internal sensor network. The only requests forwarded to the internal sensor network over IP are state change requests. Hence, it should difficult to falsely trigger this device to take a picture in such a way that privacy is compromised, without the attacker first having physical access and/or security key of the sensor network, appropriate sub-GHz transmitting device, and the Firebase access key.

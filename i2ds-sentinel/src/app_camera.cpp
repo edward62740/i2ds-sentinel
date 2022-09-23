@@ -149,7 +149,7 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
    digitalWrite(flash_ctrl, HIGH);
 
    camera_fb_t *tmpFb = esp_camera_fb_get();
-
+   digitalWrite(flash_ctrl, LOW);
    String filename = "/sentinel/" + (String)this->capture_counter;
    img_info_t img_info;
    img_info.index = this->capture_counter;
@@ -177,7 +177,7 @@ String AppCamera::switchToJPEG(ipc_warn_t &info, bool init)
 
       file.close();
    }
-   digitalWrite(flash_ctrl, LOW);
+   
    if (uxQueueSpacesAvailable(firebaseSendPayloadQueue) == 0)
       xQueueReset(firebaseSendPayloadQueue);
    if (xQueueSend(firebaseSendPayloadQueue, (void *)&img_info, 0) != 0)
